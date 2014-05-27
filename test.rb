@@ -1,6 +1,9 @@
 require 'time'
  
 class Storage
+  include Enumerable
+
+  @@conversion_rules = { }
 
   attr_accessor :input
 
@@ -8,38 +11,39 @@ class Storage
     @input = converter(input)
   end
 
-  # Запоминаем правила преобразования входных данных
-  @@conversion_rules = { }
+  def each(&block)
+    @input.each{ |i| block.call(i) }
+    # @input.each(&block)
+  end
 
   def self.attrb(attribute, format = nil)
+    @@conversion_rules[self.name] ||= { }
+
     if block_given?
       format = Proc.new do |value|
         yield(value)
       end
     end
-    @@conversion_rules[attribute] = format
+
+    @@conversion_rules[self.name].merge!(attribute => format)
   end
 
   def converter(input)
+    conversion_rules = @@conversion_rules[self.class.name]
+
     input.each do |i|
-      i.map do |key, value|
+      i.each do |key, value|
         # Если преобразование не требуется
-        if @@conversion_rules[key].nil?
+        if conversion_rules[key].nil?
           next
         # Если для преобразования используется блок
-        elsif @@conversion_rules[key].is_a?(Proc)
-          i[key] = @@conversion_rules[key].call(i[key])
+        elsif conversion_rules[key].is_a?(Proc)
+          i[key] = conversion_rules[key].call(i[key])
         else # Если преобразование по методу
-          i[key] = i[key].send(@@conversion_rules[key])
+          i[key] = i[key].send(conversion_rules[key])
         end
       end
     end
-  end
-
-  def to_a; @input; end
-  def first; to_a.first; end
-  def select
-    to_a.select { |i| yield(i) }
   end
 
   def cr
@@ -55,7 +59,7 @@ class Transactions < Storage
   end
 
   def sum
-    to_a.inject(0){ |result, i| result + i[:sum] }
+    self.inject(0){ |result, i| result + i[:sum] }
   end
 end
 
@@ -85,13 +89,11 @@ class People < Storage
   end
 end
 
-ppl = People.new([
-  {name: 'Vlas', height: '205', birthday: '1990-08-08'}
-])
+ppl = People.new([{name: 'Vlas', height: '205', birthday: '1990-08-08'}])
 
 puts ''
 puts ppl.first
 # {:name=>"Vlas", :height=>205, :birthday=>"Wed, 08 Aug 1990"}
 
-#puts ''
-#puts ppl.cr
+puts ''
+puts ppl.cr
