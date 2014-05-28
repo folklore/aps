@@ -3,8 +3,6 @@ require 'time'
 class Storage
   include Enumerable
 
-  @@conversion_rules = { }
-
   attr_accessor :input
 
   def initialize(input)
@@ -12,24 +10,26 @@ class Storage
   end
 
   def each(&block)
-    @input.each{ |i| block.call(i) }
-    # @input.each(&block)
+    @input.each(&block)
+  end
+
+  def self.conversion_rules
+    @conversion_rules
   end
 
   def self.attrb(attribute, format = nil)
-    @@conversion_rules[self.name] ||= { }
+    @conversion_rules ||= { }
 
     if block_given?
       format = Proc.new do |value|
         yield(value)
       end
     end
-
-    @@conversion_rules[self.name].merge!(attribute => format)
+    @conversion_rules[attribute] = format
   end
 
   def converter(input)
-    conversion_rules = @@conversion_rules[self.class.name]
+    conversion_rules = self.class.conversion_rules
 
     input.each do |i|
       i.each do |key, value|
@@ -44,10 +44,6 @@ class Storage
         end
       end
     end
-  end
-
-  def cr
-    puts @@conversion_rules
   end
 end
 
@@ -94,6 +90,3 @@ ppl = People.new([{name: 'Vlas', height: '205', birthday: '1990-08-08'}])
 puts ''
 puts ppl.first
 # {:name=>"Vlas", :height=>205, :birthday=>"Wed, 08 Aug 1990"}
-
-puts ''
-puts ppl.cr
